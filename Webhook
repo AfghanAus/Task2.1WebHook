@@ -1,0 +1,77 @@
+#include <DHT11.h>
+#include "secrets.h"
+#include "ThingSpeak.h" // always include thingspeak header file after other header files and custom macros
+#include <WiFiNINA.h>
+
+DHT11 dht11(2);
+
+
+char ssid[] = SECRET_SSID;   // network SSID (name) 
+char pass[] = SECRET_PASS;   // network password
+int keyIndex = 0;            // network key Index number (needed only for WEP)
+WiFiClient  client;
+
+unsigned long myChannelNumber = SECRET_CH_ID;
+const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
+
+int number = 0;
+
+void setup() {
+  Serial.begin(115200);      // Initialize serial 
+  while (!Serial) {
+    ; // wait for serial port to connect. 
+  } 
+  
+  ThingSpeak.begin(client);  // Initialize ThingSpeak 
+
+  
+}
+
+void loop() {
+
+  // Connect or reconnect to WiFi
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(SECRET_SSID);
+    while(WiFi.status() != WL_CONNECTED){
+      WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+      Serial.print(".");
+      delay(5000);     
+    } 
+    Serial.println("\nConnected.");
+  }
+
+  int temperature = dht11.readTemperature();
+  int temp_data;
+
+    // Check the result of the reading.
+    // If there's no error, print the temperature value.
+    // If there's an error, print the appropriate error message.
+  if (temperature != DHT11::ERROR_CHECKSUM && temperature != DHT11::ERROR_TIMEOUT) {
+        temp_data = int(temperature);
+        Serial.print("Temperature: ");
+        Serial.print(temperature);
+        Serial.println(" °C");
+
+  } else {
+        // Print error message based on the error code.
+        Serial.println(DHT11::getErrorString(temperature));
+  }
+
+  // write the temperature in feild 1
+  int x = ThingSpeak.writeField(myChannelNumber, 1, temp_data, myWriteAPIKey);
+   if(x == 200){
+    Serial.println("Channel update successful.");
+  }
+  else{
+    Serial.println("Problem updating channel. HTTP error code " + String(x));
+  }
+
+  // change the value
+  number++;
+  if(number > 99){
+    number = 0;
+  }
+  
+  delay(60000); // Wait 60 seconds to read the temperature again
+}
